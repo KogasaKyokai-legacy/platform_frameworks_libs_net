@@ -51,10 +51,6 @@ class BpfMap {
     BpfMap<Key, Value>(const char* pathname, uint32_t flags) {
         mMapFd.reset(mapRetrieve(pathname, flags));
         if (mMapFd < 0) abort();
-        if (isAtLeastKernelVersion(4, 14, 0)) {
-            if (bpfGetFdKeySize(mMapFd) != sizeof(Key)) abort();
-            if (bpfGetFdValueSize(mMapFd) != sizeof(Value)) abort();
-        }
     }
 
   public:
@@ -108,14 +104,6 @@ class BpfMap {
         mMapFd.reset(fd);
         if (mMapFd == -1) {
             return ErrnoErrorf("Pinned map not accessible or does not exist: ({})", path);
-        }
-        if (isAtLeastKernelVersion(4, 14, 0)) {
-            // Normally we should return an error here instead of calling abort,
-            // but this cannot happen at runtime without a massive code bug (K/V type mismatch)
-            // and as such it's better to just blow the system up and let the developer fix it.
-            // Crashes are much more likely to be noticed than logs and missing functionality.
-            if (bpfGetFdKeySize(mMapFd) != sizeof(Key)) abort();
-            if (bpfGetFdValueSize(mMapFd) != sizeof(Value)) abort();
         }
         return {};
     }
@@ -190,11 +178,6 @@ class BpfMap {
 
     [[clang::reinitializes]] void reset(int fd = -1) {
         mMapFd.reset(fd);
-        if ((fd >= 0) && isAtLeastKernelVersion(4, 14, 0)) {
-            if (bpfGetFdKeySize(mMapFd) != sizeof(Key)) abort();
-            if (bpfGetFdValueSize(mMapFd) != sizeof(Value)) abort();
-            if (bpfGetFdMapFlags(mMapFd) != 0) abort(); // TODO: fix for BpfMapRO
-        }
     }
 
     bool isValid() const { return mMapFd != -1; }
